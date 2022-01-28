@@ -10,5 +10,7 @@ require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/uuid v1.3.0
+	github.com/yargevad/filepathx v1.0.0
+	go.starlark.net v0.0.0-20211203141949-70c0e40ae128
 	gopkg.in/yaml.v2 v2.2.8
 )

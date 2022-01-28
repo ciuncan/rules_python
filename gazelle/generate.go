@@ -32,6 +32,9 @@ var (
 	// errHaltDigging is an error that signals whether the generator should halt
 	// digging the source tree searching for modules in subdirectories.
 	errHaltDigging = fmt.Errorf("halt digging")
+	// packageCache is a set of already-seen Bazel packages so we avoid doing
+	// disk IO over and over to determine if a directory is a Bazel package.
+	packageCache = make(map[string]bool)
 )
 
 // GenerateRules extracts build metadata from source files in a directory.
@@ -339,12 +342,17 @@ func (py *Python) GenerateRules(args language.GenerateArgs) language.GenerateRes
 // isBazelPackage determines if the directory is a Bazel package by probing for
 // the existence of a known BUILD file name.
 func isBazelPackage(dir string) bool {
+	if isPkg, cached := packageCache[dir]; cached {
+		return isPkg
+	}
 	for _, buildFilename := range buildFilenames {
 		path := filepath.Join(dir, buildFilename)
 		if _, err := os.Stat(path); err == nil {
+			packageCache[dir] = true
 			return true
 		}
 	}
+	packageCache[dir] = false
 	return false
 }
 

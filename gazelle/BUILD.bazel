@@ -32,7 +32,11 @@ go_library(
         "@com_github_emirpasic_gods//sets/treeset",
         "@com_github_emirpasic_gods//utils",
         "@com_github_google_uuid//:uuid",
+        "@com_github_yargevad_filepathx//:filepathx",
         "@io_bazel_rules_go//go/tools/bazel:go_default_library",
+        "@net_starlark_go//repl",
+        "@net_starlark_go//starlark",
+        "@net_starlark_go//syntax",
     ],
 )
 
