@@ -55,6 +55,7 @@ func (*Resolver) Name() string { return languageName }
 func (py *Resolver) Imports(c *config.Config, r *rule.Rule, f *rule.File) []resolve.ImportSpec {
 	cfgs := c.Exts[languageName].(pythonconfig.Configs)
 	cfg := cfgs[f.Pkg]
+	// TODO(f0rmiga): use the `imports` attribute instead of the following directive.
 	pythonProjectRoot := cfg.PythonProjectRoot()
 	srcs, err := evalSrcsExpr(f.Pkg, r.Attr("srcs"))
 	if err != nil {
