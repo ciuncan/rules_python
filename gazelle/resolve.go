@@ -136,30 +136,30 @@ func (g *Globber) Glob(
 	if len(args) > 1 {
 		return nil, fmt.Errorf("failed glob: only 1 positional argument is allowed")
 	}
-	var includes starlark.Value
+	var includeArg starlark.Value
 	if len(args) == 1 {
-		includes = args[0]
+		includeArg = args[0]
 	}
-	var excludes starlark.Value
+	var excludeArg starlark.Value
 	for _, kwarg := range kwargs {
 		switch kwarg[0] {
-		case starlark.String("includes"):
-			if includes != nil {
+		case starlark.String("include"):
+			if includeArg != nil {
 				return nil, fmt.Errorf("failed glob: invalid syntax: cannot use includes as kwarg and arg")
 			}
-			includes = kwarg[1]
-		case starlark.String("excludes"):
-			excludes = kwarg[1]
+			includeArg = kwarg[1]
+		case starlark.String("exclude"):
+			excludeArg = kwarg[1]
 		default:
 			return nil, fmt.Errorf("failed glob: invalid syntax: kwarg %q not recognized", kwarg[0])
 		}
 	}
 
 	excludeSet := make(map[string]struct{})
-	if excludes != nil {
-		excludePatterns, ok := excludes.(*starlark.List)
+	if excludeArg != nil {
+		excludePatterns, ok := excludeArg.(*starlark.List)
 		if !ok {
-			return nil, fmt.Errorf("failed glob: excludes is not a list")
+			return nil, fmt.Errorf("failed glob: exclude is not a list")
 		}
 		excludeIterator := excludePatterns.Iterate()
 		var excludePatternVal starlark.Value
@@ -180,9 +180,9 @@ func (g *Globber) Glob(
 	}
 
 	rootBazelPackageTree := NewBazelPackageTree(g.pkg)
-	includePatterns, ok := includes.(*starlark.List)
+	includePatterns, ok := includeArg.(*starlark.List)
 	if !ok {
-		return nil, fmt.Errorf("failed glob: includes is not a list")
+		return nil, fmt.Errorf("failed glob: include is not a list")
 	}
 	includeIterator := includePatterns.Iterate()
 	var includePatternVal starlark.Value
