@@ -141,15 +141,35 @@ func (g *Globber) Glob(
 		includeArg = args[0]
 	}
 	var excludeArg starlark.Value
+	allowEmpty := true
 	for _, kwarg := range kwargs {
 		switch kwarg[0] {
 		case starlark.String("include"):
 			if includeArg != nil {
-				return nil, fmt.Errorf("failed glob: invalid syntax: cannot use includes as kwarg and arg")
+				return nil, fmt.Errorf("failed glob: invalid syntax: cannot use include as kwarg and arg")
 			}
 			includeArg = kwarg[1]
 		case starlark.String("exclude"):
 			excludeArg = kwarg[1]
+		case starlark.String("exclude_directories"):
+			excludeDirectoriesArg := kwarg[1]
+			excludeDirectoriesInt, ok := excludeDirectoriesArg.(starlark.Int)
+			if !ok {
+				return nil, fmt.Errorf("failed glob: invalid syntax: exclude_directories must be 0 or 1")
+			}
+			excludeDirectories, ok := excludeDirectoriesInt.Int64()
+			if !ok || (excludeDirectories != 0 && excludeDirectories != 1) {
+				return nil, fmt.Errorf("failed glob: invalid syntax: exclude_directories must be 0 or 1")
+			}
+			// TODO(f0rmiga): implement.
+			log.Println("WARNING: the 'exclude_directories' attribute of 'glob' was set but is not supported by Gazelle")
+		case starlark.String("allow_empty"):
+			allowEmptyArg := kwarg[1]
+			allowEmptyAssert, ok := allowEmptyArg.(starlark.Bool)
+			if !ok {
+				return nil, fmt.Errorf("failed glob: invalid syntax: allow_empty must be a boolean")
+			}
+			allowEmpty = bool(allowEmptyAssert)
 		default:
 			return nil, fmt.Errorf("failed glob: invalid syntax: kwarg %q not recognized", kwarg[0])
 		}
@@ -170,7 +190,7 @@ func (g *Globber) Glob(
 			}
 			matches, err := filepathx.Glob(path.Join(g.pkg, string(excludePattern)))
 			if err != nil {
-				return nil, fmt.Errorf("failed to get srcs: %w", err)
+				return nil, fmt.Errorf("failed glob: %w", err)
 			}
 			for _, match := range matches {
 				exclude, _ := filepath.Rel(g.pkg, match)
@@ -193,7 +213,7 @@ func (g *Globber) Glob(
 		}
 		matches, err := filepathx.Glob(path.Join(g.pkg, string(includePattern)))
 		if err != nil {
-			return nil, fmt.Errorf("failed to get srcs: %w", err)
+			return nil, fmt.Errorf("failed glob: %w", err)
 		}
 		for _, match := range matches {
 			src, _ := filepath.Rel(g.pkg, match)
@@ -203,7 +223,14 @@ func (g *Globber) Glob(
 			}
 		}
 	}
-	return starlark.NewList(rootBazelPackageTree.Paths()), nil
+
+	result := rootBazelPackageTree.Paths()
+
+	if !allowEmpty && len(result) == 0 {
+		return nil, fmt.Errorf("failed glob: 'allow_empty' was set and the result was empty")
+	}
+
+	return starlark.NewList(result), nil
 }
 
 // BazelPackageTree is a representation of a filesystem tree specialized for
