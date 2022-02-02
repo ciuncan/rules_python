@@ -57,7 +57,7 @@ func (py *Resolver) Imports(c *config.Config, r *rule.Rule, f *rule.File) []reso
 	if srcsAttr == nil {
 		return nil
 	}
-	srcs, err := evalSrcsExpr(f.Pkg, srcsAttr)
+	srcs, err := evalSrcsExpr(c.RepoRoot, f.Pkg, srcsAttr)
 	if err != nil {
 		log.Fatalf("failed to process imports for %q in %q: %v", r.Name(), f.Pkg, err)
 	}
@@ -93,7 +93,11 @@ func (py *Resolver) Imports(c *config.Config, r *rule.Rule, f *rule.File) []reso
 // a pure list expression, it's not evaluated as a starlark source. Otherwise,
 // a starlark VM evaluates the expression, especially to resolve globs and other
 // list arithmetic operations.
-func evalSrcsExpr(pkg string, expr bzl.Expr) ([]string, error) {
+func evalSrcsExpr(
+	repoRoot string,
+	pkg string,
+	expr bzl.Expr,
+) ([]string, error) {
 	if list, ok := expr.(*bzl.ListExpr); ok {
 		srcs := make([]string, 0, len(list.List))
 		for _, e := range list.List {
@@ -105,7 +109,10 @@ func evalSrcsExpr(pkg string, expr bzl.Expr) ([]string, error) {
 	}
 
 	thread := &starlark.Thread{Load: repl.MakeLoad()}
-	globber := Globber{pkg: pkg}
+	globber := Globber{
+		repoRoot: repoRoot,
+		pkg:      pkg,
+	}
 	env := starlark.StringDict{"glob": starlark.NewBuiltin("glob", globber.Glob)}
 	srcsSyntaxExpr, err := syntax.ParseExpr("", bzl.FormatString(expr), syntax.RetainComments)
 	if err != nil {
@@ -128,7 +135,8 @@ func evalSrcsExpr(pkg string, expr bzl.Expr) ([]string, error) {
 
 // Globber implements the glob built-in to evaluate the srcs attribute containing glob patterns.
 type Globber struct {
-	pkg string
+	repoRoot string
+	pkg      string
 }
 
 // Glob expands the glob patterns and filters Bazel sub-packages from the tree.
@@ -144,6 +152,7 @@ func (g *Globber) Glob(
 	if len(args) > 1 {
 		return nil, fmt.Errorf("failed glob: only 1 positional argument is allowed")
 	}
+	absPkg := path.Join(g.repoRoot, g.pkg)
 	var includeArg starlark.Value
 	if len(args) == 1 {
 		includeArg = args[0]
@@ -196,12 +205,13 @@ func (g *Globber) Glob(
 			if !ok {
 				return nil, fmt.Errorf("failed glob: exclude pattern must be a string")
 			}
-			matches, err := filepathx.Glob(path.Join(g.pkg, string(excludePattern)))
+			absPattern := path.Join(absPkg, string(excludePattern))
+			matches, err := filepathx.Glob(absPattern)
 			if err != nil {
 				return nil, fmt.Errorf("failed glob: %w", err)
 			}
 			for _, match := range matches {
-				exclude, _ := filepath.Rel(g.pkg, match)
+				exclude, _ := filepath.Rel(absPkg, match)
 				excludeSet[exclude] = struct{}{}
 			}
 		}
@@ -219,12 +229,13 @@ func (g *Globber) Glob(
 		if !ok {
 			return nil, fmt.Errorf("failed glob: include pattern must be a string")
 		}
-		matches, err := filepathx.Glob(path.Join(g.pkg, string(includePattern)))
+		absPattern := path.Join(absPkg, string(includePattern))
+		matches, err := filepathx.Glob(absPattern)
 		if err != nil {
 			return nil, fmt.Errorf("failed glob: %w", err)
 		}
 		for _, match := range matches {
-			src, _ := filepath.Rel(g.pkg, match)
+			src, _ := filepath.Rel(absPkg, match)
 			if _, excluded := excludeSet[src]; !excluded {
 				parts := strings.Split(src, string(filepath.Separator))
 				rootBazelPackageTree.AddPath(parts)
