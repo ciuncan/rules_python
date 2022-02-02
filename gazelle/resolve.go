@@ -53,11 +53,15 @@ func (*Resolver) Name() string { return languageName }
 // If nil is returned, the rule will not be indexed. If any non-nil slice is
 // returned, including an empty slice, the rule will be indexed.
 func (py *Resolver) Imports(c *config.Config, r *rule.Rule, f *rule.File) []resolve.ImportSpec {
+	srcsAttr := r.Attr("srcs")
+	if srcsAttr == nil {
+		return nil
+	}
 	cfgs := c.Exts[languageName].(pythonconfig.Configs)
 	cfg := cfgs[f.Pkg]
 	// TODO(f0rmiga): use the `imports` attribute instead of the following directive.
 	pythonProjectRoot := cfg.PythonProjectRoot()
-	srcs, err := evalSrcsExpr(f.Pkg, r.Attr("srcs"))
+	srcs, err := evalSrcsExpr(f.Pkg, srcsAttr)
 	if err != nil {
 		log.Fatalf("failed to process imports for %q in %q: %v", r.Name(), f.Pkg, err)
 	}
