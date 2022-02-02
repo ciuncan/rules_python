@@ -57,20 +57,23 @@ func (py *Resolver) Imports(c *config.Config, r *rule.Rule, f *rule.File) []reso
 	if srcsAttr == nil {
 		return nil
 	}
-	cfgs := c.Exts[languageName].(pythonconfig.Configs)
-	cfg := cfgs[f.Pkg]
-	// TODO(f0rmiga): use the `imports` attribute instead of the following directive.
-	pythonProjectRoot := cfg.PythonProjectRoot()
 	srcs, err := evalSrcsExpr(f.Pkg, srcsAttr)
 	if err != nil {
 		log.Fatalf("failed to process imports for %q in %q: %v", r.Name(), f.Pkg, err)
 	}
-	provides := make([]resolve.ImportSpec, 0, len(srcs)+1)
+	imports := r.AttrStrings("imports")
+	if len(imports) == 0 {
+		imports = []string{""}
+	}
+	provides := make([]resolve.ImportSpec, 0, len(srcs)*len(imports)+1)
 	for _, src := range srcs {
 		ext := filepath.Ext(src)
 		if ext == ".py" {
-			provide := importSpecFromSrc(pythonProjectRoot, f.Pkg, src)
-			provides = append(provides, provide)
+			for _, imp := range imports {
+				pythonpath := path.Clean(path.Join(f.Pkg, imp))
+				provide := importSpecFromSrc(pythonpath, f.Pkg, src)
+				provides = append(provides, provide)
+			}
 		}
 	}
 	if r.PrivateAttr(uuidKey) != nil {
