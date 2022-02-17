@@ -120,7 +120,8 @@ func evalSrcsExpr(
 	}
 	srcsVal, err := starlark.EvalExpr(thread, srcsSyntaxExpr, env)
 	if err != nil {
-		return nil, fmt.Errorf("failed to eval srcs expression: %w", err)
+		fmt.Printf("WARNING: failed to eval srcs expression: %v\n", err)
+		return []string{}, nil
 	}
 	srcsValList := srcsVal.(*starlark.List)
 	srcs := make([]string, 0, srcsValList.Len())
